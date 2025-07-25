@@ -1,5 +1,9 @@
 import { ConflictException, NotFoundException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { JwtModule } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AuthGuard } from '../../auth/guards/auth.guard';
+import { AuthorizationGuard } from '../../auth/guards/authorization.guard';
 import { CreateUserDto } from '../dtos/create-user.dto';
 import { UpdateEmailDto } from '../dtos/update-email.dto';
 import { UpdateUserDto } from '../dtos/update-user.dto';
@@ -19,6 +23,13 @@ describe('UsersController', () => {
         tasks: [],
     };
 
+    const mockUserResponse = {
+        id: 'test-user-id',
+        email: 'test@example.com',
+        fullname: 'Test User',
+        tasks: [],
+    };
+
     const mockUsersService = {
         findOne: jest.fn(),
         create: jest.fn(),
@@ -27,16 +38,38 @@ describe('UsersController', () => {
         remove: jest.fn(),
     };
 
+    const mockJwtService = {
+        verifyAsync: jest.fn(),
+    };
+
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
+            imports: [
+                JwtModule.register({
+                    secret: 'test-secret',
+                    signOptions: { expiresIn: '1h' },
+                }),
+            ],
             controllers: [UsersController],
             providers: [
                 {
                     provide: UsersService,
                     useValue: mockUsersService,
                 },
+                {
+                    provide: 'JwtService',
+                    useValue: mockJwtService,
+                },
+                Reflector,
+                AuthGuard,
+                AuthorizationGuard,
             ],
-        }).compile();
+        })
+            .overrideGuard(AuthGuard)
+            .useValue({ canActivate: () => true })
+            .overrideGuard(AuthorizationGuard)
+            .useValue({ canActivate: () => true })
+            .compile();
 
         controller = module.get<UsersController>(UsersController);
         usersService = module.get<UsersService>(UsersService);
@@ -64,12 +97,18 @@ describe('UsersController', () => {
                 email: createUserDto.email,
                 fullname: createUserDto.fullname,
             };
+            const newUserResponse = {
+                ...mockUserResponse,
+                id: 'new-user-id',
+                email: createUserDto.email,
+                fullname: createUserDto.fullname,
+            };
             mockUsersService.create.mockResolvedValue(newUser);
 
             const result = await controller.create(createUserDto);
 
             expect(mockUsersService.create).toHaveBeenCalledWith(createUserDto);
-            expect(result).toEqual(newUser);
+            expect(result).toEqual(newUserResponse);
         });
 
         it('should handle creation errors', async () => {
@@ -119,7 +158,7 @@ describe('UsersController', () => {
             const result = await controller.findOne(userId);
 
             expect(mockUsersService.findOne).toHaveBeenCalledWith(userId);
-            expect(result).toEqual(mockUser);
+            expect(result).toEqual(mockUserResponse);
         });
 
         it('should handle user not found', async () => {
@@ -152,6 +191,10 @@ describe('UsersController', () => {
 
         it('should update a user', async () => {
             const updatedUser = { ...mockUser, ...updateUserDto };
+            const updatedUserResponse = {
+                ...mockUserResponse,
+                ...updateUserDto,
+            };
             mockUsersService.update.mockResolvedValue(updatedUser);
 
             const result = await controller.update(userId, updateUserDto);
@@ -160,12 +203,16 @@ describe('UsersController', () => {
                 userId,
                 updateUserDto,
             );
-            expect(result).toEqual(updatedUser);
+            expect(result).toEqual(updatedUserResponse);
         });
 
         it('should handle partial updates', async () => {
             const partialUpdate: UpdateUserDto = { fullname: 'New Name' };
             const updatedUser = { ...mockUser, fullname: 'New Name' };
+            const updatedUserResponse = {
+                ...mockUserResponse,
+                fullname: 'New Name',
+            };
             mockUsersService.update.mockResolvedValue(updatedUser);
 
             const result = await controller.update(userId, partialUpdate);
@@ -174,7 +221,7 @@ describe('UsersController', () => {
                 userId,
                 partialUpdate,
             );
-            expect(result).toEqual(updatedUser);
+            expect(result).toEqual(updatedUserResponse);
         });
 
         it('should handle user not found', async () => {
@@ -224,6 +271,10 @@ describe('UsersController', () => {
 
         it('should update user email', async () => {
             const updatedUser = { ...mockUser, email: updateEmailDto.email };
+            const updatedUserResponse = {
+                ...mockUserResponse,
+                email: updateEmailDto.email,
+            };
             mockUsersService.updateEmail.mockResolvedValue(updatedUser);
 
             const result = await controller.updateEmail(userId, updateEmailDto);
@@ -232,7 +283,7 @@ describe('UsersController', () => {
                 userId,
                 updateEmailDto,
             );
-            expect(result).toEqual(updatedUser);
+            expect(result).toEqual(updatedUserResponse);
         });
 
         it('should handle user not found', async () => {

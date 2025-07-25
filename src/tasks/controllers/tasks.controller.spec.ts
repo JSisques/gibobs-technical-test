@@ -1,5 +1,9 @@
 import { NotFoundException } from '@nestjs/common';
+import { Reflector } from '@nestjs/core';
+import { JwtModule } from '@nestjs/jwt';
 import { Test, TestingModule } from '@nestjs/testing';
+import { AuthGuard } from '../../auth/guards/auth.guard';
+import { AuthorizationGuard } from '../../auth/guards/authorization.guard';
 import { User } from '../../users/entities/user.entity';
 import { CreateTaskDto } from '../dtos/create-task.dto';
 import { UpdateTaskDto } from '../dtos/update-task.dto';
@@ -28,6 +32,20 @@ describe('TasksController', () => {
         owner: mockUser,
     };
 
+    const mockTaskResponse = {
+        id: 'test-task-id',
+        title: 'Test Task',
+        description: 'Test Description',
+        done: false,
+        dueDate: '2024-12-31T23:59:59.000Z',
+        owner: {
+            id: 'test-user-id',
+            email: 'test@example.com',
+            fullname: 'Test User',
+            tasks: [],
+        },
+    };
+
     const mockTasksService = {
         listTasks: jest.fn(),
         getTask: jest.fn(),
@@ -35,16 +53,38 @@ describe('TasksController', () => {
         editTask: jest.fn(),
     };
 
+    const mockJwtService = {
+        verifyAsync: jest.fn(),
+    };
+
     beforeEach(async () => {
         const module: TestingModule = await Test.createTestingModule({
+            imports: [
+                JwtModule.register({
+                    secret: 'test-secret',
+                    signOptions: { expiresIn: '1h' },
+                }),
+            ],
             controllers: [TasksController],
             providers: [
                 {
                     provide: TasksService,
                     useValue: mockTasksService,
                 },
+                {
+                    provide: 'JwtService',
+                    useValue: mockJwtService,
+                },
+                Reflector,
+                AuthGuard,
+                AuthorizationGuard,
             ],
-        }).compile();
+        })
+            .overrideGuard(AuthGuard)
+            .useValue({ canActivate: () => true })
+            .overrideGuard(AuthorizationGuard)
+            .useValue({ canActivate: () => true })
+            .compile();
 
         controller = module.get<TasksController>(TasksController);
         tasksService = module.get<TasksService>(TasksService);
@@ -67,6 +107,12 @@ describe('TasksController', () => {
             const tasks = [mockTask];
             const total = 1;
             const mockResponse = { tasks, total };
+            const expectedResponse = {
+                tasks: [mockTaskResponse],
+                total: 1,
+                page: 1,
+                limit: 10,
+            };
             mockTasksService.listTasks.mockResolvedValue(mockResponse);
 
             const result = await controller.listTasks(page, limit, {
@@ -74,24 +120,30 @@ describe('TasksController', () => {
             });
 
             expect(mockTasksService.listTasks).toHaveBeenCalledWith(
-                page,
-                limit,
+                1,
+                10,
                 userId,
             );
-            expect(result).toEqual(mockResponse);
+            expect(result).toEqual(expectedResponse);
         });
 
         it('should handle empty task list', async () => {
             const tasks = [];
             const total = 0;
             const mockResponse = { tasks, total };
+            const expectedResponse = {
+                tasks: [],
+                total: 0,
+                page: 1,
+                limit: 10,
+            };
             mockTasksService.listTasks.mockResolvedValue(mockResponse);
 
             const result = await controller.listTasks(page, limit, {
                 user: { id: userId },
             });
 
-            expect(result).toEqual(mockResponse);
+            expect(result).toEqual(expectedResponse);
         });
 
         it('should handle service errors', async () => {
@@ -107,6 +159,12 @@ describe('TasksController', () => {
             const tasks = [mockTask];
             const total = 1;
             const mockResponse = { tasks, total };
+            const expectedResponse = {
+                tasks: [mockTaskResponse],
+                total: 1,
+                page: 2,
+                limit: 5,
+            };
             mockTasksService.listTasks.mockResolvedValue(mockResponse);
 
             const result = await controller.listTasks('2', '5', {
@@ -118,7 +176,7 @@ describe('TasksController', () => {
                 5,
                 userId,
             );
-            expect(result).toEqual(mockResponse);
+            expect(result).toEqual(expectedResponse);
         });
     });
 
@@ -137,7 +195,7 @@ describe('TasksController', () => {
                 taskId,
                 userId,
             );
-            expect(result).toEqual(mockTask);
+            expect(result).toEqual(mockTaskResponse);
         });
 
         it('should handle task not found', async () => {
@@ -179,6 +237,11 @@ describe('TasksController', () => {
                 id: 'new-task-id',
                 title: createTaskDto.title,
             };
+            const newTaskResponse = {
+                ...mockTaskResponse,
+                id: 'new-task-id',
+                title: createTaskDto.title,
+            };
             mockTasksService.createTask.mockResolvedValue(newTask);
 
             const result = await controller.createTask(createTaskDto, {
@@ -189,7 +252,7 @@ describe('TasksController', () => {
                 createTaskDto,
                 userId,
             );
-            expect(result).toEqual(newTask);
+            expect(result).toEqual(newTaskResponse);
         });
 
         it('should handle creation errors', async () => {
@@ -211,6 +274,11 @@ describe('TasksController', () => {
                 done: true,
             };
             const newTask = { ...mockTask, id: 'new-task-id', done: true };
+            const newTaskResponse = {
+                ...mockTaskResponse,
+                id: 'new-task-id',
+                done: true,
+            };
             mockTasksService.createTask.mockResolvedValue(newTask);
 
             const result = await controller.createTask(createTaskDtoWithDone, {
@@ -221,7 +289,7 @@ describe('TasksController', () => {
                 createTaskDtoWithDone,
                 userId,
             );
-            expect(result).toEqual(newTask);
+            expect(result).toEqual(newTaskResponse);
         });
 
         it('should handle validation errors', async () => {
@@ -255,6 +323,10 @@ describe('TasksController', () => {
 
         it('should update a task', async () => {
             const updatedTask = { ...mockTask, ...updateTaskDto };
+            const updatedTaskResponse = {
+                ...mockTaskResponse,
+                ...updateTaskDto,
+            };
             mockTasksService.editTask.mockResolvedValue(updatedTask);
 
             const result = await controller.editTask(updateTaskDto, taskId, {
@@ -266,12 +338,13 @@ describe('TasksController', () => {
                 updateTaskDto,
                 userId,
             );
-            expect(result).toEqual(updatedTask);
+            expect(result).toEqual(updatedTaskResponse);
         });
 
         it('should handle partial updates', async () => {
             const partialUpdate: UpdateTaskDto = { done: true };
             const updatedTask = { ...mockTask, done: true };
+            const updatedTaskResponse = { ...mockTaskResponse, done: true };
             mockTasksService.editTask.mockResolvedValue(updatedTask);
 
             const result = await controller.editTask(partialUpdate, taskId, {
@@ -283,7 +356,7 @@ describe('TasksController', () => {
                 partialUpdate,
                 userId,
             );
-            expect(result).toEqual(updatedTask);
+            expect(result).toEqual(updatedTaskResponse);
         });
 
         it('should handle task not found', async () => {

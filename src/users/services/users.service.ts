@@ -113,6 +113,11 @@ export class UsersService {
 
     async remove(id: string): Promise<void> {
         this.logger.log(`Removing user with id: ${id}`);
+
+        // 1. Check if the user exists
+        await this.usersRepository.findOne(id);
+
+        // 2. Remove user
         await this.usersRepository.remove(id);
     }
 }
