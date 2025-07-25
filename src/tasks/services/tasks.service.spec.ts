@@ -140,7 +140,9 @@ describe('TasksService', () => {
         });
 
         it('should throw NotFoundException when task not found', async () => {
-            mockTasksRepository.getTaskByOwner.mockResolvedValue(null);
+            mockTasksRepository.getTaskByOwner.mockRejectedValue(
+                new NotFoundException(`Task with id ${taskId} not found`),
+            );
 
             await expect(service.getTask(taskId, userId)).rejects.toThrow(
                 NotFoundException,

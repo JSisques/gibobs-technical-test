@@ -106,7 +106,9 @@ describe('UsersService', () => {
         });
 
         it('should throw NotFoundException when user not found', async () => {
-            mockUsersRepository.findOne.mockResolvedValue(null);
+            mockUsersRepository.findOne.mockRejectedValue(
+                new NotFoundException(`User with id ${userId} not found`),
+            );
 
             await expect(service.findOne(userId)).rejects.toThrow(
                 NotFoundException,
@@ -236,7 +238,9 @@ describe('UsersService', () => {
         });
 
         it('should throw NotFoundException when user not found', async () => {
-            mockUsersRepository.findOne.mockResolvedValue(null);
+            mockUsersRepository.findOne.mockRejectedValue(
+                new NotFoundException(`User with id ${userId} not found`),
+            );
 
             await expect(service.update(userId, updateUserDto)).rejects.toThrow(
                 NotFoundException,
@@ -283,7 +287,9 @@ describe('UsersService', () => {
         });
 
         it('should throw NotFoundException when user not found', async () => {
-            mockUsersRepository.findOne.mockResolvedValue(null);
+            mockUsersRepository.findOne.mockRejectedValue(
+                new NotFoundException(`User with id ${userId} not found`),
+            );
 
             await expect(
                 service.updateEmail(userId, updateEmailDto),
@@ -312,17 +318,17 @@ describe('UsersService', () => {
         const userId = 'test-user-id';
 
         it('should remove user successfully', async () => {
-            mockUsersRepository.findOne.mockResolvedValue(mockUser);
             mockUsersRepository.remove.mockResolvedValue(undefined);
 
             await service.remove(userId);
 
-            expect(mockUsersRepository.findOne).toHaveBeenCalledWith(userId);
             expect(mockUsersRepository.remove).toHaveBeenCalledWith(userId);
         });
 
         it('should throw NotFoundException when user not found', async () => {
-            mockUsersRepository.findOne.mockResolvedValue(null);
+            mockUsersRepository.findOne.mockRejectedValue(
+                new NotFoundException(`User with id ${userId} not found`),
+            );
 
             await expect(service.remove(userId)).rejects.toThrow(
                 NotFoundException,

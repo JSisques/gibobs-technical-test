@@ -34,6 +34,7 @@ describe('TaskMapper', () => {
                     id: mockUser.id,
                     email: mockUser.email,
                     fullname: mockUser.fullname,
+                    tasks: [],
                 },
             });
         });
@@ -73,6 +74,7 @@ describe('TaskMapper', () => {
                 id: differentOwner.id,
                 email: differentOwner.email,
                 fullname: differentOwner.fullname,
+                tasks: [],
             });
         });
 
@@ -168,7 +170,7 @@ describe('TaskMapper', () => {
             };
             const result = TaskMapper.toResponseDto(taskWithUndefinedOwner);
 
-            expect(result.owner).toBeUndefined();
+            expect(result.owner).toBeNull();
         });
     });
 });

@@ -162,7 +162,7 @@ describe('AuthGuard', () => {
             const mockUser = { id: 'user-id', email: 'test@example.com' };
             const mockRequest = {
                 headers: {
-                    authorization: 'bearer valid-token',
+                    authorization: 'Bearer valid-token',
                 },
             };
 

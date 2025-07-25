@@ -26,7 +26,7 @@ describe('AuthService', () => {
     };
 
     const mockJwtService = {
-        sign: jest.fn(),
+        signAsync: jest.fn(),
     };
 
     const mockEncryptionService = {
@@ -75,7 +75,7 @@ describe('AuthService', () => {
         it('should sign in successfully with valid credentials', async () => {
             mockUsersService.findByEmail.mockResolvedValue(mockUser);
             mockEncryptionService.comparePassword.mockResolvedValue(true);
-            mockJwtService.sign.mockReturnValue(mockToken);
+            mockJwtService.signAsync.mockResolvedValue(mockToken);
 
             const result = await service.signIn(email, password);
 
@@ -84,7 +84,7 @@ describe('AuthService', () => {
                 password,
                 mockUser.pass,
             );
-            expect(mockJwtService.sign).toHaveBeenCalledWith({
+            expect(mockJwtService.signAsync).toHaveBeenCalledWith({
                 id: mockUser.id,
                 email: mockUser.email,
             });
@@ -109,7 +109,7 @@ describe('AuthService', () => {
             expect(
                 mockEncryptionService.comparePassword,
             ).not.toHaveBeenCalled();
-            expect(mockJwtService.sign).not.toHaveBeenCalled();
+            expect(mockJwtService.signAsync).not.toHaveBeenCalled();
         });
 
         it('should throw UnauthorizedException when password is incorrect', async () => {
@@ -124,7 +124,7 @@ describe('AuthService', () => {
                 password,
                 mockUser.pass,
             );
-            expect(mockJwtService.sign).not.toHaveBeenCalled();
+            expect(mockJwtService.signAsync).not.toHaveBeenCalled();
         });
 
         it('should throw UnauthorizedException when password comparison fails', async () => {
@@ -152,7 +152,7 @@ describe('AuthService', () => {
             mockEncryptionService.hashPassword.mockResolvedValue(
                 hashedPassword,
             );
-            mockJwtService.sign.mockReturnValue(mockToken);
+            mockJwtService.signAsync.mockResolvedValue(mockToken);
 
             const result = await service.signUp(email, password, fullname);
 
@@ -164,7 +164,7 @@ describe('AuthService', () => {
                 password: hashedPassword,
                 fullname,
             });
-            expect(mockJwtService.sign).toHaveBeenCalledWith({
+            expect(mockJwtService.signAsync).toHaveBeenCalledWith({
                 id: newUser.id,
                 email: newUser.email,
             });
@@ -219,7 +219,7 @@ describe('AuthService', () => {
             mockEncryptionService.hashPassword.mockResolvedValue(
                 hashedPassword,
             );
-            mockJwtService.sign.mockImplementation(() => {
+            mockJwtService.signAsync.mockImplementation(() => {
                 throw new Error('JWT signing failed');
             });
 
